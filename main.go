@@ -145,7 +145,7 @@ func main() {
 		return
 	}
 
-	data, err := parse.Parse(dicom.ParseOptions{DropPixelData:false})
+	data, err := parse.Parse(dicom.ParseOptions{DropPixelData: false})
 	if err != nil {
 		showError("Error parsing "+path, a)
 		return
