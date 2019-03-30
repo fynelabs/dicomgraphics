@@ -131,8 +131,6 @@ func showError(err string, a fyne.App) {
 }
 
 func main() {
-	log.Println(os.Args)
-	log.Println(os.Environ())
 	a := app.New()
 
 	if len(os.Args) != 2 {
