@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -19,25 +18,39 @@ import (
 )
 
 type viewer struct {
-	dicom           *dicomgraphics.DICOMImage
-	image           *canvas.Image
-	study, name, id *widget.Label
+	dicom                  *dicomgraphics.DICOMImage
+	frames                 []dicom.Frame
+	currentFrame           int
+	image                  *canvas.Image
+	study, name, id, frame *widget.Label
 
 	win fyne.Window
+}
+
+func (v *viewer) setFrame(id int) {
+	count := len(v.frames)
+	if id > count-1 {
+		id = 0
+	} else if id < 0 {
+		id = count - 1
+	}
+	v.currentFrame = id
+
+	v.dicom.SetFrame(&v.frames[id].NativeData)
+	canvas.Refresh(v.image)
+	v.frame.SetText(fmt.Sprintf("%d/%d", id+1, count))
 }
 
 func (v *viewer) loadImage(data *dicom.DataSet) {
 	for _, elem := range data.Elements {
 		if elem.Tag == dicomtag.PixelData {
-			frames := elem.Value[0].(dicom.PixelDataInfo).Frames
+			v.frames = elem.Value[0].(dicom.PixelDataInfo).Frames
 
-			if len(frames) == 0 {
+			if len(v.frames) == 0 {
 				panic("No images found")
-			} else if len(frames) > 1 {
-				log.Println("Many images found, displaying only first element")
 			}
 
-			v.dicom.SetFrame(&frames[0].NativeData)
+			v.setFrame(0)
 		} else if elem.Tag == dicomtag.PatientName {
 			v.name.SetText(fmt.Sprintf("%v", elem.Value[0]))
 		} else if elem.Tag == dicomtag.PatientID {
@@ -55,6 +68,17 @@ func (v *viewer) loadImage(data *dicom.DataSet) {
 
 }
 
+func (v *viewer) loadKeys() {
+	v.win.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
+		switch key.Name {
+		case fyne.KeyDown:
+			v.setFrame(v.currentFrame + 1)
+		case fyne.KeyUp:
+			v.setFrame(v.currentFrame - 1)
+		}
+	})
+}
+
 func makeUI(a fyne.App) *viewer {
 	win := a.NewWindow("DICOM Viewer")
 	dicomImg := dicomgraphics.NewDICOMImage(nil, 40, 380)
@@ -70,6 +94,8 @@ func makeUI(a fyne.App) *viewer {
 	values.Append("Name", view.name)
 	view.study = widget.NewLabel("ANON")
 	values.Append("Study", view.study)
+	view.frame = widget.NewLabel("1/1")
+	values.Append("Frame", view.frame)
 
 	level := widget.NewEntry()
 	level.SetText(fmt.Sprintf("%d", dicomImg.WindowLevel()))
@@ -130,5 +156,6 @@ func main() {
 
 	ui := makeUI(a)
 	ui.loadImage(data)
+	ui.loadKeys()
 	ui.win.ShowAndRun()
 }
