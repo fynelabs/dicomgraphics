@@ -48,13 +48,13 @@ func main() {
 	path := os.Args[1]
 	parse, err := dicom.NewParserFromFile(path, nil)
 	if err != nil {
-		log.Println("Error loading "+path)
+		log.Println("Error loading " + path)
 		return
 	}
 
 	data, err := parse.Parse(dicom.ParseOptions{DropPixelData: false})
 	if err != nil {
-		log.Println("Error parsing "+path)
+		log.Println("Error parsing " + path)
 		return
 	}
 
@@ -64,7 +64,7 @@ func main() {
 		return
 	}
 
-	jpegPath := path[:len(path)-3]+"jpg"
+	jpegPath := path[:len(path)-3] + "jpg"
 	f, err := os.Create(jpegPath)
 	if err != nil {
 		panic(err)
