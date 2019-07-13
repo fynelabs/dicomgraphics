@@ -51,8 +51,10 @@ func (d *DICOMImage) At(x, y int) color.Color {
 	i := y*d.frame.Rows + x
 	raw := int16(d.frame.Data[i][0])
 
-	if raw < windowMin || raw >= windowMax {
+	if raw < windowMin {
 		return color.Gray16{Y: 0}
+	} else if raw >= windowMax {
+		return color.Gray16{Y: 0xffff}
 	}
 
 	val := float32(raw-windowMin) / float32(d.width)
