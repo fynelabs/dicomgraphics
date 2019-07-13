@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/dialog"
 	"fyne.io/fyne/layout"
+	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 
 	"github.com/andydotxyz/dicomgraphics"
@@ -71,31 +72,31 @@ func (v *viewer) loadImage(data *dicom.DataSet) {
 func (v *viewer) loadKeys() {
 	v.win.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
 		switch key.Name {
-		case fyne.KeyDown:
-			v.setFrame(v.currentFrame + 1)
 		case fyne.KeyUp:
-			v.setFrame(v.currentFrame - 1)
+			v.nextFrame()
+		case fyne.KeyDown:
+			v.previousFrame()
 		}
 	})
 }
 
-func makeUI(a fyne.App) *viewer {
-	win := a.NewWindow("DICOM Viewer")
-	dicomImg := dicomgraphics.NewDICOMImage(nil, 40, 380)
+func (v *viewer) nextFrame() {
+	v.setFrame(v.currentFrame + 1)
+}
 
-	img := canvas.NewImageFromImage(dicomImg)
-	img.FillMode = canvas.ImageFillContain
+func (v *viewer) previousFrame() {
+	v.setFrame(v.currentFrame - 1)
+}
 
-	view := &viewer{dicom: dicomImg, image: img, win: win}
+func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image) fyne.Widget {
 	values := widget.NewForm()
-	view.id = widget.NewLabel("anon")
-	values.Append("ID", view.id)
-	view.name = widget.NewLabel("anon")
-	values.Append("Name", view.name)
-	view.study = widget.NewLabel("ANON")
-	values.Append("Study", view.study)
-	view.frame = widget.NewLabel("1/1")
-	values.Append("Frame", view.frame)
+
+	v.id = widget.NewLabel("anon")
+	values.Append("ID", v.id)
+	v.name = widget.NewLabel("anon")
+	values.Append("Name", v.name)
+	v.study = widget.NewLabel("ANON")
+	values.Append("Study", v.study)
 
 	level := widget.NewEntry()
 	level.SetText(fmt.Sprintf("%d", dicomImg.WindowLevel()))
@@ -117,8 +118,67 @@ func makeUI(a fyne.App) *viewer {
 	}
 	values.Append("Width", width)
 
-	win.SetContent(fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, nil, values, nil),
-		values, img))
+	return values
+}
+
+func (v *viewer) setupNavigation() []fyne.CanvasObject {
+	next := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() {
+		v.nextFrame()
+	})
+	prev := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() {
+		v.previousFrame()
+	})
+
+	in := widget.NewButtonWithIcon("", theme.ZoomInIcon(), func() {
+		// TODO
+	})
+	out := widget.NewButtonWithIcon("", theme.ZoomOutIcon(), func() {
+		// TODO
+	})
+
+	up := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() {
+		// TODO
+	})
+	down := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() {
+		// TODO
+	})
+	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() {
+		// TODO
+	})
+	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() {
+		// TODO
+	})
+
+	directions := fyne.NewContainerWithLayout(layout.NewGridLayout(3),
+		out, up, in,
+		left, layout.NewSpacer(), right,
+		layout.NewSpacer(), down, layout.NewSpacer(),
+	)
+	v.frame = widget.NewLabel("1/1")
+	return []fyne.CanvasObject{fyne.NewContainerWithLayout(layout.NewGridLayout(1),
+		next,
+		widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame}),
+		prev),
+		layout.NewSpacer(),
+		directions,
+	}
+}
+
+func makeUI(a fyne.App) *viewer {
+	win := a.NewWindow("DICOM Viewer")
+	dicomImg := dicomgraphics.NewDICOMImage(nil, 40, 380)
+
+	img := canvas.NewImageFromImage(dicomImg)
+	img.FillMode = canvas.ImageFillContain
+
+	view := &viewer{dicom: dicomImg, image: img, win: win}
+	form := view.setupForm(dicomImg, img)
+	items := []fyne.CanvasObject{form}
+	items = append(items, view.setupNavigation()...)
+	bar := widget.NewVBox(items...)
+
+	win.SetContent(fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, nil, bar, nil),
+		bar, img))
 	win.Resize(fyne.NewSize(600, 400))
 
 	return view
