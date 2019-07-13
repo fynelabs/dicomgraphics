@@ -76,8 +76,14 @@ func (v *viewer) loadKeys() {
 			v.nextFrame()
 		case fyne.KeyDown:
 			v.previousFrame()
+		case fyne.KeyF:
+			v.fullScreen()
 		}
 	})
+}
+
+func (v *viewer) fullScreen() {
+	v.win.SetFullScreen(!v.win.FullScreen())
 }
 
 func (v *viewer) nextFrame() {
@@ -128,6 +134,9 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	prev := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() {
 		v.previousFrame()
 	})
+	full := widget.NewButtonWithIcon("", theme.ViewFullScreenIcon(), func() {
+		v.fullScreen()
+	})
 
 	in := widget.NewButtonWithIcon("", theme.ZoomInIcon(), func() {
 		// TODO
@@ -151,7 +160,7 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 
 	directions := fyne.NewContainerWithLayout(layout.NewGridLayout(3),
 		out, up, in,
-		left, layout.NewSpacer(), right,
+		left, full, right,
 		layout.NewSpacer(), down, layout.NewSpacer(),
 	)
 	v.frame = widget.NewLabel("1/1")
