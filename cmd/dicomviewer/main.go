@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/dialog"
 	"fyne.io/fyne/layout"
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
@@ -195,7 +194,9 @@ func makeUI(a fyne.App) *viewer {
 
 func showError(err string, a fyne.App) {
 	go func() {
-		d := dialog.NewInformation("DICOM Viewer Error", err, nil)
+		// TODO return to dialog when Fyne supports parentless dialogs
+		d := a.NewWindow("DICOM Viewer Error")
+		d.SetContent(widget.NewLabel(err))
 		d.Show()
 	}()
 
