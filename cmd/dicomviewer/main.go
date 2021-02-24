@@ -5,12 +5,13 @@ import (
 	"os"
 	"strconv"
 
-	"fyne.io/fyne"
-	"fyne.io/fyne/app"
-	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/layout"
-	"fyne.io/fyne/theme"
-	"fyne.io/fyne/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/andydotxyz/dicomgraphics"
 	"github.com/suyashkumar/dicom"
@@ -158,16 +159,15 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 		// TODO
 	})
 
-	directions := fyne.NewContainerWithLayout(layout.NewGridLayout(3),
+	directions := container.NewGridWithColumns(3,
 		out, up, in,
 		left, full, right,
 		layout.NewSpacer(), down, layout.NewSpacer(),
 	)
 	v.frame = widget.NewLabel("1/1")
-	return []fyne.CanvasObject{fyne.NewContainerWithLayout(layout.NewGridLayout(1),
-		next,
-		widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame}),
-		prev),
+	return []fyne.CanvasObject{
+		container.NewGridWithColumns(1, next,
+			widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame}), prev),
 		layout.NewSpacer(),
 		directions,
 	}
@@ -184,10 +184,9 @@ func makeUI(a fyne.App) *viewer {
 	form := view.setupForm(dicomImg, img)
 	items := []fyne.CanvasObject{form}
 	items = append(items, view.setupNavigation()...)
-	bar := widget.NewVBox(items...)
+	bar := container.NewVBox(items...)
 
-	win.SetContent(fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, nil, bar, nil),
-		bar, img))
+	win.SetContent(container.NewBorder(nil, nil, bar, nil, img))
 	win.Resize(fyne.NewSize(600, 400))
 
 	return view
