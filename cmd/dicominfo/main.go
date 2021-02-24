@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gradienthealth/dicom"
-	"github.com/gradienthealth/dicom/dicomtag"
+	"github.com/suyashkumar/dicom"
+	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 type info struct {
 	studyDate, name, id string
 }
 
-func (i *info) loadInfo(data *dicom.DataSet) {
+func (i *info) loadInfo(data dicom.Dataset) {
 	for _, elem := range data.Elements {
-		if elem.Tag == dicomtag.PatientName {
-			i.name = fmt.Sprintf("%v", elem.Value[0])
-		} else if elem.Tag == dicomtag.PatientID {
-			i.id = fmt.Sprintf("%v", elem.Value[0])
-		} else if elem.Tag == dicomtag.StudyDate {
-			i.studyDate = fmt.Sprintf("%v", elem.Value[0])
+		if elem.Tag == tag.PatientName {
+			i.name = fmt.Sprintf("%v", elem.Value)
+		} else if elem.Tag == tag.PatientID {
+			i.id = fmt.Sprintf("%v", elem.Value)
+		} else if elem.Tag == tag.StudyDate {
+			i.studyDate = fmt.Sprintf("%v", elem.Value)
 		}
 	}
 
@@ -37,13 +37,7 @@ func main() {
 	}
 
 	path := flag.Arg(0)
-	parse, err := dicom.NewParserFromFile(path, nil)
-	if err != nil {
-		log.Println("Error loading " + path)
-		return
-	}
-
-	data, err := parse.Parse(dicom.ParseOptions{DropPixelData: false})
+	data, err := dicom.ParseFile(path, nil)
 	if err != nil {
 		log.Println("Error parsing " + path)
 		return

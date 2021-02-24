@@ -1,7 +1,8 @@
 package dicomgraphics
 
 import (
-	"github.com/gradienthealth/dicom"
+	"github.com/suyashkumar/dicom/pkg/frame"
+
 	"image"
 	"image/color"
 )
@@ -10,10 +11,10 @@ type DICOMImage struct {
 	level int16
 	width int16
 
-	frame *dicom.NativeFrame
+	frame *frame.NativeFrame
 }
 
-func (d *DICOMImage) SetFrame(frame *dicom.NativeFrame) {
+func (d *DICOMImage) SetFrame(frame *frame.NativeFrame) {
 	d.frame = frame
 }
 
@@ -61,6 +62,6 @@ func (d *DICOMImage) At(x, y int) color.Color {
 	return color.Gray16{Y: uint16(float32(0xffff) * val)}
 }
 
-func NewDICOMImage(frame *dicom.NativeFrame, level, width int16) *DICOMImage {
+func NewDICOMImage(frame *frame.NativeFrame, level, width int16) *DICOMImage {
 	return &DICOMImage{frame: frame, width: width, level: level}
 }

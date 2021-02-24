@@ -13,13 +13,14 @@ import (
 	"fyne.io/fyne/widget"
 
 	"github.com/andydotxyz/dicomgraphics"
-	"github.com/gradienthealth/dicom"
-	"github.com/gradienthealth/dicom/dicomtag"
+	"github.com/suyashkumar/dicom"
+	"github.com/suyashkumar/dicom/pkg/frame"
+	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 type viewer struct {
 	dicom                  *dicomgraphics.DICOMImage
-	frames                 []dicom.Frame
+	frames                 []frame.Frame
 	currentFrame           int
 	image                  *canvas.Image
 	study, name, id, frame *widget.Label
@@ -41,27 +42,27 @@ func (v *viewer) setFrame(id int) {
 	v.frame.SetText(fmt.Sprintf("%d/%d", id+1, count))
 }
 
-func (v *viewer) loadImage(data *dicom.DataSet) {
+func (v *viewer) loadImage(data dicom.Dataset) {
 	for _, elem := range data.Elements {
-		if elem.Tag == dicomtag.PixelData {
-			v.frames = elem.Value[0].(dicom.PixelDataInfo).Frames
+		if elem.Tag == tag.PixelData {
+			v.frames = elem.Value.GetValue().(dicom.PixelDataInfo).Frames
 
 			if len(v.frames) == 0 {
 				panic("No images found")
 			}
 
 			v.setFrame(0)
-		} else if elem.Tag == dicomtag.PatientName {
-			v.name.SetText(fmt.Sprintf("%v", elem.Value[0]))
-		} else if elem.Tag == dicomtag.PatientID {
-			v.id.SetText(fmt.Sprintf("%v", elem.Value[0]))
-		} else if elem.Tag == dicomtag.StudyDescription {
-			v.study.SetText(fmt.Sprintf("%v", elem.Value[0]))
-		} else if elem.Tag == dicomtag.WindowCenter {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value[0]))
+		} else if elem.Tag == tag.PatientName {
+			v.name.SetText(fmt.Sprintf("%v", elem.Value))
+		} else if elem.Tag == tag.PatientID {
+			v.id.SetText(fmt.Sprintf("%v", elem.Value))
+		} else if elem.Tag == tag.StudyDescription {
+			v.study.SetText(fmt.Sprintf("%v", elem.Value))
+		} else if elem.Tag == tag.WindowCenter {
+			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
 			v.dicom.SetWindowLevel(int16(l))
-		} else if elem.Tag == dicomtag.WindowWidth {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value[0]))
+		} else if elem.Tag == tag.WindowWidth {
+			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
 			v.dicom.SetWindowWidth(int16(l))
 		}
 	}
@@ -212,13 +213,7 @@ func main() {
 	}
 
 	path := os.Args[1]
-	parse, err := dicom.NewParserFromFile(path, nil)
-	if err != nil {
-		showError("Error loading "+path, a)
-		return
-	}
-
-	data, err := parse.Parse(dicom.ParseOptions{DropPixelData: false})
+	data, err := dicom.ParseFile(path, nil)
 	if err != nil {
 		showError("Error parsing "+path, a)
 		return

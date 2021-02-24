@@ -9,21 +9,22 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/suyashkumar/dicom/pkg/frame"
 	"golang.org/x/image/draw"
 
-	"github.com/gradienthealth/dicom"
-	"github.com/gradienthealth/dicom/dicomtag"
+	"github.com/suyashkumar/dicom"
+	"github.com/suyashkumar/dicom/pkg/tag"
 
 	"github.com/andydotxyz/dicomgraphics"
 )
 
-func findImage(data *dicom.DataSet) ([]dicom.NativeFrame, int16, int16) {
-	var frames []dicom.NativeFrame
+func findImage(data dicom.Dataset) ([]frame.NativeFrame, int16, int16) {
+	var frames []frame.NativeFrame
 	level := int16(40)
 	width := int16(380)
 	for _, elem := range data.Elements {
-		if elem.Tag == dicomtag.PixelData {
-			slices := elem.Value[0].(dicom.PixelDataInfo).Frames
+		if elem.Tag == tag.PixelData {
+			slices := elem.Value.GetValue().(dicom.PixelDataInfo).Frames
 
 			if len(slices) == 0 {
 				panic("No images found")
@@ -32,11 +33,11 @@ func findImage(data *dicom.DataSet) ([]dicom.NativeFrame, int16, int16) {
 			for _, slice := range slices {
 				frames = append(frames, slice.NativeData)
 			}
-		} else if elem.Tag == dicomtag.WindowCenter {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value[0]))
+		} else if elem.Tag == tag.WindowCenter {
+			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
 			level = int16(l)
-		} else if elem.Tag == dicomtag.WindowWidth {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value[0]))
+		} else if elem.Tag == tag.WindowWidth {
+			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
 			width = int16(l)
 		}
 	}
@@ -52,13 +53,7 @@ func main() {
 
 	path := os.Args[1]
 	// TODO support a directory list as well
-	parse, err := dicom.NewParserFromFile(path, nil)
-	if err != nil {
-		log.Println("Error loading " + path)
-		return
-	}
-
-	data, err := parse.Parse(dicom.ParseOptions{DropPixelData: false})
+	data, err := dicom.ParseFile(path, nil)
 	if err != nil {
 		log.Println("Error parsing " + path)
 		return
