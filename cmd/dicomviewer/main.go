@@ -135,41 +135,17 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	prev := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() {
 		v.previousFrame()
 	})
-	full := widget.NewButtonWithIcon("", theme.ViewFullScreenIcon(), func() {
+	full := widget.NewButtonWithIcon("Full Screen", theme.ViewFullScreenIcon(), func() {
 		v.fullScreen()
 	})
 
-	in := widget.NewButtonWithIcon("", theme.ZoomInIcon(), func() {
-		// TODO
-	})
-	out := widget.NewButtonWithIcon("", theme.ZoomOutIcon(), func() {
-		// TODO
-	})
-
-	up := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() {
-		// TODO
-	})
-	down := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() {
-		// TODO
-	})
-	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() {
-		// TODO
-	})
-	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() {
-		// TODO
-	})
-
-	directions := container.NewGridWithColumns(3,
-		out, up, in,
-		left, full, right,
-		layout.NewSpacer(), down, layout.NewSpacer(),
-	)
 	v.frame = widget.NewLabel("1/1")
 	return []fyne.CanvasObject{
-		container.NewGridWithColumns(1, next,
-			widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame}), prev),
+		container.NewGridWithColumns(1, next, container.NewCenter(
+			widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame})),
+			prev),
 		layout.NewSpacer(),
-		directions,
+		full,
 	}
 }
 
