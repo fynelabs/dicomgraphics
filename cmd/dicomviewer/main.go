@@ -60,14 +60,15 @@ func (v *viewer) loadImage(data dicom.Dataset) {
 		} else if elem.Tag == tag.StudyDescription {
 			v.study.SetText(fmt.Sprintf("%v", elem.Value))
 		} else if elem.Tag == tag.WindowCenter {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
+			str := fmt.Sprintf("%v", elem.Value.GetValue().([]string)[0])
+			l, _ := strconv.Atoi(str)
 			v.dicom.SetWindowLevel(int16(l))
 		} else if elem.Tag == tag.WindowWidth {
-			l, _ := strconv.Atoi(fmt.Sprintf("%v", elem.Value))
+			str := fmt.Sprintf("%v", elem.Value.GetValue().([]string)[0])
+			l, _ := strconv.Atoi(str)
 			v.dicom.SetWindowWidth(int16(l))
 		}
 	}
-
 }
 
 func (v *viewer) loadKeys() {
