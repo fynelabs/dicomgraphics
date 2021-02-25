@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/andydotxyz/dicomgraphics"
+	"github.com/fynelabs/dicomgraphics"
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/frame"
 	"github.com/suyashkumar/dicom/pkg/tag"

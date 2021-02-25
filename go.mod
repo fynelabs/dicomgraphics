@@ -1,4 +1,4 @@
-module github.com/andydotxyz/dicomgraphics
+module github.com/fynelabs/dicomgraphics
 
 go 1.12
 

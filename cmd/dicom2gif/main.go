@@ -15,7 +15,7 @@ import (
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
 
-	"github.com/andydotxyz/dicomgraphics"
+	"github.com/fynelabs/dicomgraphics"
 )
 
 func findImage(data dicom.Dataset) ([]frame.NativeFrame, int16, int16) {

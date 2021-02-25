@@ -11,7 +11,7 @@ Built using the [Fyne](https://fyne.io) toolkit.
 ### Usage
 
 ```sh
-go get -u github.com/andydotxyz/dicomgraphics/cmd/dicomviewer
+go get -u github.com/fynelabs/dicomgraphics/cmd/dicomviewer
 dicomviewer <filename.dcm>
 ```
 
@@ -28,7 +28,7 @@ A command line utility to convert DICOM image frames to jpeg files.
 ### Usage
 
 ```sh
-go get -u github.com/andydotxyz/dicomgraphics/cmd/dicom2jpg
+go get -u github.com/fynelabs/dicomgraphics/cmd/dicom2jpg
 dicom2jpg <filename.dcm>
 ```
 
