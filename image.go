@@ -1,10 +1,10 @@
 package dicomgraphics
 
 import (
-	"github.com/suyashkumar/dicom/pkg/frame"
-
 	"image"
 	"image/color"
+
+	"github.com/suyashkumar/dicom/pkg/frame"
 )
 
 type DICOMImage struct {
@@ -39,6 +39,10 @@ func (d *DICOMImage) ColorModel() color.Model {
 }
 
 func (d *DICOMImage) Bounds() image.Rectangle {
+	if d.frame == nil {
+		return image.Rectangle{}
+	}
+
 	return image.Rect(0, 0, d.frame.Cols, d.frame.Rows)
 }
 
