@@ -33,3 +33,17 @@ dicom2jpg <filename.dcm>
 ```
 
 The command will output a `jpg` file in the same directory as the `.dcm`.
+
+## dicom2gif
+
+A command line utility to convert DICOM image frames to an animated gif file.
+
+### Usage
+
+```sh
+go get -u github.com/fynelabs/dicomgraphics/cmd/dicom2gif
+dicom2jpg <filename.dcm>
+```
+
+The command will output a `gif` file in the same directory as the `.dcm`.
+This file will animate through each of the frames of the DICOM file.
