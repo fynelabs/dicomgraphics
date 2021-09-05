@@ -1,3 +1,5 @@
+//go:generate fyne bundle -o bundle.go ../../icon.png
+
 package main
 
 import (
@@ -219,6 +221,7 @@ func fileLength(path string) int64 {
 
 func main() {
 	a := app.New()
+	a.SetIcon(resourceIconPng)
 
 	ui := makeUI(a)
 	if len(os.Args) > 1 {

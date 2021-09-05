@@ -1,4 +1,5 @@
 .idea
-dicomviewer
-dicomviewer.exe
+cmd/dicomviewer/dicomviewer
+cmd/dicomviewer/dicomviewer.app
+cmd/dicomviewer/dicomviewer.exe
 
