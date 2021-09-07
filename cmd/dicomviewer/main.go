@@ -97,6 +97,46 @@ func (v *viewer) fullScreen() {
 	v.win.SetFullScreen(!v.win.FullScreen())
 }
 
+func (v *viewer) loadDir(dir fyne.ListableURI) {
+	var (
+		data dicom.Dataset
+		frames []frame.Frame
+	)
+
+	files, _ := dir.List()
+	for i, file := range files {
+		r, _ := storage.Reader(file)
+		d, err := dicom.Parse(r, fileLength(file.Path()), nil)
+		if i == 0 {
+			if err != nil {
+				fyne.LogError("First file in dir was not DICOM", err)
+				return
+			}
+			data = d
+		}
+		if err != nil {
+			fyne.LogError("Could not open dicom file "+ file.Name()+" in folder", err)
+			continue
+		}
+
+		t, err := d.FindElementByTag(tag.PixelData)
+		if err == nil {
+			frames = append(frames, t.Value.GetValue().(dicom.PixelDataInfo).Frames...)
+		}
+		_ = r.Close()
+	}
+
+	t, err := data.FindElementByTag(tag.PixelData)
+	if err == nil {
+		info := t.Value.GetValue().(dicom.PixelDataInfo)
+		info.Frames = frames
+		v, _ := dicom.NewValue(info)
+		t.Value = v
+	}
+
+	v.loadImage(data)
+}
+
 func (v *viewer) loadFile(r io.ReadCloser, length int64) {
 	data, err := dicom.Parse(r, length, nil)
 	if err != nil {
@@ -122,6 +162,17 @@ func (v *viewer) openFile() {
 		v.loadFile(f, fileLength(f.URI().Path())) // TODO work with library upstream to not do this
 	}, v.win)
 	d.SetFilter(storage.NewExtensionFileFilter([]string{".dcm"}))
+	d.Show()
+}
+
+func (v *viewer) openFolder() {
+	d := dialog.NewFolderOpen(func (f fyne.ListableURI, err error) {
+		if f == nil || err != nil {
+			return
+		}
+
+		v.loadDir(f)
+	}, v.win)
 	d.Show()
 }
 
@@ -226,12 +277,23 @@ func main() {
 	ui := makeUI(a)
 	if len(os.Args) > 1 {
 		path := os.Args[1]
-		r, err := os.Open(path)
-		if err != nil {
-			log.Println("Failed to load file at path:", path)
-			return
+
+		info, err := os.Stat(path)
+		if err == nil && info.IsDir() {
+			dir, err := storage.ListerForURI(storage.NewFileURI(path))
+			if err != nil {
+				log.Println("Failed to open folder at path:", path)
+				return
+			}
+			ui.loadDir(dir)
+		} else {
+			r, err := os.Open(path)
+			if err != nil {
+				log.Println("Failed to load file at path:", path)
+				return
+			}
+			ui.loadFile(r, fileLength(path))
 		}
-		ui.loadFile(r, fileLength(path))
 	}
 
 	ui.loadKeys()

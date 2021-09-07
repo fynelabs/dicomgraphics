@@ -10,12 +10,17 @@ Built using the [Fyne](https://fyne.io) toolkit.
 
 ### Usage
 
-```sh
-go get -u github.com/fynelabs/dicomgraphics/cmd/dicomviewer
-dicomviewer <filename.dcm>
+```
+$ go get -u github.com/fynelabs/dicomgraphics/cmd/dicomviewer
+$ dicomviewer <filename.dcm>
+```
+_or if you have a folder of image slices:_
+
+```
+$ dicomviewer <foldername>
 ```
 
-And you should see something like the following:
+You should see something like the following:
 
 ![](screenshot.png)
 
