@@ -99,7 +99,7 @@ func (v *viewer) fullScreen() {
 
 func (v *viewer) loadDir(dir fyne.ListableURI) {
 	var (
-		data dicom.Dataset
+		data   dicom.Dataset
 		frames []frame.Frame
 	)
 
@@ -115,7 +115,7 @@ func (v *viewer) loadDir(dir fyne.ListableURI) {
 			data = d
 		}
 		if err != nil {
-			fyne.LogError("Could not open dicom file "+ file.Name()+" in folder", err)
+			fyne.LogError("Could not open dicom file "+file.Name()+" in folder", err)
 			continue
 		}
 
@@ -154,7 +154,7 @@ func (v *viewer) nextFrame() {
 }
 
 func (v *viewer) openFile() {
-	d := dialog.NewFileOpen(func (f fyne.URIReadCloser, err error) {
+	d := dialog.NewFileOpen(func(f fyne.URIReadCloser, err error) {
 		if f == nil || err != nil {
 			return
 		}
@@ -166,7 +166,7 @@ func (v *viewer) openFile() {
 }
 
 func (v *viewer) openFolder() {
-	d := dialog.NewFolderOpen(func (f fyne.ListableURI, err error) {
+	d := dialog.NewFolderOpen(func(f fyne.ListableURI, err error) {
 		if f == nil || err != nil {
 			return
 		}
@@ -198,7 +198,7 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 
 		canvas.Refresh(img)
 	}
-	values.Append("Level", v.level)
+	values.Append("Window Level", v.level)
 
 	v.width = widget.NewEntry()
 	v.width.SetText(fmt.Sprintf("%d", dicomImg.WindowWidth()))
@@ -208,7 +208,7 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 
 		canvas.Refresh(img)
 	}
-	values.Append("Width", v.width)
+	values.Append("Window Width", v.width)
 
 	return values
 }
@@ -227,7 +227,7 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	v.frame = widget.NewLabel("1/1")
 	return []fyne.CanvasObject{
 		container.NewGridWithColumns(1, next, container.NewCenter(
-			widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame})),
+			widget.NewForm(&widget.FormItem{Text: "Slice", Widget: v.frame})),
 			prev),
 		layout.NewSpacer(),
 		full,
