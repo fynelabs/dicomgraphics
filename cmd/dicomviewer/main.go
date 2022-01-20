@@ -227,7 +227,7 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	v.frame = widget.NewLabel("1/1")
 	return []fyne.CanvasObject{
 		container.NewGridWithColumns(1, next, container.NewCenter(
-			widget.NewForm(&widget.FormItem{Text: "Frame", Widget: v.frame})),
+			widget.NewForm(&widget.FormItem{Text: "Slice", Widget: v.frame})),
 			prev),
 		layout.NewSpacer(),
 		full,
