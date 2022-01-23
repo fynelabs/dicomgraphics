@@ -180,7 +180,7 @@ func (v *viewer) previousFrame() {
 	v.setFrame(v.currentFrame - 1)
 }
 
-func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image) fyne.Widget {
+func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image) fyne.CanvasObject {
 	values := widget.NewForm()
 
 	v.id = widget.NewLabel("anon")
@@ -198,7 +198,6 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 
 		canvas.Refresh(img)
 	}
-	values.Append("Window Level", v.level)
 
 	v.width = widget.NewEntry()
 	v.width.SetText(fmt.Sprintf("%d", dicomImg.WindowWidth()))
@@ -208,9 +207,10 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 
 		canvas.Refresh(img)
 	}
-	values.Append("Window Width", v.width)
 
-	return values
+	return container.NewVBox(values, widget.NewCard("Window", "", widget.NewForm(
+		widget.NewFormItem("Level", v.level),
+		widget.NewFormItem("Width", v.width))))
 }
 
 func (v *viewer) setupNavigation() []fyne.CanvasObject {
