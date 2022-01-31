@@ -25,6 +25,24 @@ import (
 	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
+var (
+	presetNames = []string{
+		"Abdomen",
+		"Bone",
+		"Brain",
+		"Lungs",
+		"Mediastinum",
+	}
+
+	presetValues = map[string]struct{ level, width int }{
+		"Abdomen":     {40, 400},
+		"Bone":        {400, 1800},
+		"Brain":       {40, 80},
+		"Lungs":       {600, 1500},
+		"Mediastinum": {50, 350},
+	}
+)
+
 type viewer struct {
 	dicom                  *dicomgraphics.DICOMImage
 	frames                 []frame.Frame
@@ -208,9 +226,15 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 		canvas.Refresh(img)
 	}
 
+	presets := widget.NewSelect(presetNames, func(name string) {
+		val := presetValues[name]
+		v.level.SetText(strconv.Itoa(val.level))
+		v.width.SetText(strconv.Itoa(val.width))
+	})
 	return container.NewVBox(values, widget.NewCard("Window", "", widget.NewForm(
 		widget.NewFormItem("Level", v.level),
-		widget.NewFormItem("Width", v.width))))
+		widget.NewFormItem("Width", v.width),
+		widget.NewFormItem("Preset", presets))))
 }
 
 func (v *viewer) setupNavigation() []fyne.CanvasObject {
