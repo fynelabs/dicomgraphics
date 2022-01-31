@@ -266,10 +266,8 @@ func makeUI(a fyne.App) *viewer {
 	img.FillMode = canvas.ImageFillContain
 
 	view := &viewer{dicom: dicomImg, image: img, win: win}
-	toolbar := widget.NewToolbar(widget.NewToolbarAction(theme.FolderOpenIcon(), view.openFile))
-
 	form := view.setupForm(dicomImg, img)
-	items := []fyne.CanvasObject{toolbar, form}
+	items := []fyne.CanvasObject{view.makeToolbar(), form}
 	items = append(items, view.setupNavigation()...)
 	bar := container.NewVBox(items...)
 
