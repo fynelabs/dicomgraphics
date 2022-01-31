@@ -25,5 +25,6 @@ func (l *labelledAction) ToolbarObject() fyne.CanvasObject {
 func (v *viewer) makeToolbar() *widget.Toolbar {
 	return widget.NewToolbar(
 		newLabelledAction("Open File", theme.FolderOpenIcon(), v.openFile),
-		newLabelledAction("Open Folder", theme.FolderOpenIcon(), v.openFolder))
+		newLabelledAction("Open Folder", theme.FolderOpenIcon(), v.openFolder),
+		widget.NewToolbarAction(theme.ViewFullScreenIcon(), v.fullScreen))
 }
