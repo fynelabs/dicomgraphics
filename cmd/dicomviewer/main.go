@@ -24,7 +24,7 @@ import (
 
 type viewer struct {
 	dicom                  *dicomgraphics.DICOMImage
-	frames                 []frame.Frame
+	frames                 []*frame.Frame
 	currentFrame           int
 	image                  *canvas.Image
 	study, name, id, frame *widget.Label
@@ -36,7 +36,7 @@ type viewer struct {
 func (v *viewer) loadDir(dir fyne.ListableURI) {
 	var (
 		data   dicom.Dataset
-		frames []frame.Frame
+		frames []*frame.Frame
 	)
 
 	files, _ := dir.List()
