@@ -120,6 +120,33 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	}
 }
 
+// scrollImage shows an image and steps through the slices of a viewer when the
+// mouse wheel is used over it.
+type scrollImage struct {
+	widget.BaseWidget
+
+	image *canvas.Image
+	view  *viewer
+}
+
+func newScrollImage(img *canvas.Image, view *viewer) *scrollImage {
+	s := &scrollImage{image: img, view: view}
+	s.ExtendBaseWidget(s)
+	return s
+}
+
+func (s *scrollImage) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(s.image)
+}
+
+func (s *scrollImage) Scrolled(ev *fyne.ScrollEvent) {
+	if ev.Scrolled.DY > 0 {
+		s.view.previousFrame()
+	} else if ev.Scrolled.DY < 0 {
+		s.view.nextFrame()
+	}
+}
+
 func makeUI(a fyne.App) *viewer {
 	win := a.NewWindow("DICOM Viewer")
 	dicomImg := dicomgraphics.NewDICOMImage(nil, 40, 380)
@@ -133,7 +160,7 @@ func makeUI(a fyne.App) *viewer {
 	items = append(items, view.setupNavigation()...)
 	bar := container.NewVBox(items...)
 
-	win.SetContent(container.NewBorder(nil, nil, bar, nil, img))
+	win.SetContent(container.NewBorder(nil, nil, bar, nil, newScrollImage(img, view)))
 	win.Resize(fyne.NewSize(600, 400))
 
 	return view
