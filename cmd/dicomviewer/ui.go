@@ -76,6 +76,7 @@ func (v *viewer) setupForm() fyne.CanvasObject {
 	v.level.OnChanged = func(val string) {
 		l, _ := strconv.Atoi(val)
 		v.setWindowLevel(int16(l))
+		v.updateVolume(true, true, true)
 		v.refreshImages()
 	}
 
@@ -84,6 +85,7 @@ func (v *viewer) setupForm() fyne.CanvasObject {
 	v.width.OnChanged = func(val string) {
 		w, _ := strconv.Atoi(val)
 		v.setWindowWidth(int16(w))
+		v.updateVolume(true, true, true)
 		v.refreshImages()
 	}
 
@@ -279,6 +281,7 @@ func makeUI(a fyne.App) *viewer {
 		}, func(step int) {
 			view.setCrosshair(view.sagittal.Index()+step, view.coronal.Index())
 		})
+	view.volume = newVolumeView()
 	view.view = container.NewStack(view.slices)
 
 	form := view.setupForm()

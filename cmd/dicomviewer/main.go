@@ -16,7 +16,6 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
@@ -34,6 +33,7 @@ type viewer struct {
 	slices                 *markedImage
 	coronalView            *markedImage
 	sagittalView           *markedImage
+	volume                 *volumeView
 	view                   *fyne.Container
 	study, name, id, frame *widget.Label
 	level, width           *widget.Entry
@@ -276,6 +276,7 @@ func (v *viewer) setFrame(id int) {
 	v.currentFrame = id
 
 	v.dicom.SetFrame(&v.frames[id].NativeData)
+	v.updateVolume(true, false, false)
 	v.refreshImages()
 	v.frame.SetText(fmt.Sprintf("%d/%d", id+1, count))
 }
@@ -285,7 +286,27 @@ func (v *viewer) setFrame(id int) {
 func (v *viewer) setCrosshair(col, row int) {
 	v.sagittal.SetIndex(col)
 	v.coronal.SetIndex(row)
+	v.updateVolume(false, true, true)
 	v.refreshImages()
+}
+
+// updateVolume copies the chosen planes into the 3D view and moves its cut point to
+// the crosshair. It does nothing when there is no volume to show.
+func (v *viewer) updateVolume(axial, coronal, sagittal bool) {
+	if len(v.frames) <= 1 {
+		return
+	}
+	if axial {
+		v.volume.setPlane("axial", v.dicom)
+	}
+	if coronal {
+		v.volume.setPlane("coronal", v.coronal)
+	}
+	if sagittal {
+		v.volume.setPlane("sagittal", v.sagittal)
+	}
+	first := &v.frames[0].NativeData
+	v.volume.setCut(v.sagittal.Index(), v.coronal.Index(), v.currentFrame, first.Cols, first.Rows, len(v.frames))
 }
 
 // refreshImages redraws every view and its marker lines.
@@ -293,6 +314,7 @@ func (v *viewer) refreshImages() {
 	v.slices.Refresh()
 	v.coronalView.Refresh()
 	v.sagittalView.Refresh()
+	v.volume.Refresh()
 }
 
 // crosshairMarks returns the centre of the column and row of the main image that the
@@ -330,11 +352,13 @@ func (v *viewer) setVolume(data dicom.Dataset) {
 	rowSpacing, colSpacing, sliceSpacing := spacingOf(data)
 	v.coronal.SetSliceRatio(sliceSpacing / colSpacing)
 	v.sagittal.SetSliceRatio(sliceSpacing / rowSpacing)
+	v.volume.setExtents(natives[0].Cols, natives[0].Rows, len(natives), rowSpacing, colSpacing, sliceSpacing)
+	v.updateVolume(false, true, true)
 
 	if len(v.frames) > 1 {
 		v.view.Objects = []fyne.CanvasObject{container.NewGridWithColumns(2,
 			v.slices, v.coronalView,
-			v.sagittalView, layout.NewSpacer())}
+			v.sagittalView, v.volume)}
 	} else {
 		v.view.Objects = []fyne.CanvasObject{v.slices}
 	}
