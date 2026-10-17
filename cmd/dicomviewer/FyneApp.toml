@@ -1,0 +1,8 @@
+[Details]
+Name = "DICOM Viewer"
+ID = "xyz.andy.dicomviewer"
+Icon = "../../icon.png"
+
+[Migrations]
+fyneDo = true
+
