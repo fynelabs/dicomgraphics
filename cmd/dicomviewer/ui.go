@@ -112,13 +112,40 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	})
 
 	v.frame = widget.NewLabel("1/1")
+	frame := container.NewGridWithColumns(1, next, container.NewCenter(
+		widget.NewForm(&widget.FormItem{Text: "Slice", Widget: v.frame})),
+		prev)
+
+	v.coronalPos = widget.NewLabel("1/1")
+	coronal := v.setupStepper("Coronal", v.coronalPos, func(step int) {
+		v.setCrosshair(v.sagittal.Index(), v.coronal.Index()+step)
+	})
+	v.sagittalPos = widget.NewLabel("1/1")
+	sagittal := v.setupStepper("Sagittal", v.sagittalPos, func(step int) {
+		v.setCrosshair(v.sagittal.Index()+step, v.coronal.Index())
+	})
+
 	return []fyne.CanvasObject{
-		container.NewGridWithColumns(1, next, container.NewCenter(
-			widget.NewForm(&widget.FormItem{Text: "Slice", Widget: v.frame})),
-			prev),
+		frame,
+		coronal,
+		sagittal,
 		layout.NewSpacer(),
 		full,
 	}
+}
+
+// setupStepper builds a labelled position readout with buttons either side that
+// move it one step back or forward.
+func (v *viewer) setupStepper(name string, pos *widget.Label, step func(int)) fyne.CanvasObject {
+	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() {
+		step(-1)
+	})
+	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() {
+		step(1)
+	})
+
+	return container.NewBorder(nil, nil, left, right, container.NewCenter(
+		widget.NewForm(&widget.FormItem{Text: name, Widget: pos})))
 }
 
 // markedImage shows an image scaled to fit and draws a vertical and horizontal line

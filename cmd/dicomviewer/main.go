@@ -26,17 +26,18 @@ import (
 )
 
 type viewer struct {
-	dicom                  *dicomgraphics.DICOMImage
-	coronal, sagittal      *dicomgraphics.Projection
-	frames                 []*frame.Frame
-	currentFrame           int
-	slices                 *markedImage
-	coronalView            *markedImage
-	sagittalView           *markedImage
-	volume                 *volumeView
-	view                   *fyne.Container
-	study, name, id, frame *widget.Label
-	level, width           *widget.Entry
+	dicom                   *dicomgraphics.DICOMImage
+	coronal, sagittal       *dicomgraphics.Projection
+	frames                  []*frame.Frame
+	currentFrame            int
+	slices                  *markedImage
+	coronalView             *markedImage
+	sagittalView            *markedImage
+	volume                  *volumeView
+	view                    *fyne.Container
+	study, name, id, frame  *widget.Label
+	coronalPos, sagittalPos *widget.Label
+	level, width            *widget.Entry
 
 	win fyne.Window
 }
@@ -288,6 +289,17 @@ func (v *viewer) setCrosshair(col, row int) {
 	v.coronal.SetIndex(row)
 	v.updateVolume(false, true, true)
 	v.refreshImages()
+	v.updatePositions()
+}
+
+// updatePositions shows the row and column that the projections cut through.
+func (v *viewer) updatePositions() {
+	if len(v.frames) == 0 {
+		return
+	}
+	first := &v.frames[0].NativeData
+	v.coronalPos.SetText(fmt.Sprintf("%d/%d", v.coronal.Index()+1, first.Rows))
+	v.sagittalPos.SetText(fmt.Sprintf("%d/%d", v.sagittal.Index()+1, first.Cols))
 }
 
 // updateVolume copies the chosen planes into the 3D view and moves its cut point to
@@ -364,6 +376,7 @@ func (v *viewer) setVolume(data dicom.Dataset) {
 	}
 	v.view.Refresh()
 	v.refreshImages()
+	v.updatePositions()
 }
 
 func fileLength(path string) int64 {
