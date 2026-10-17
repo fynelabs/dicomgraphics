@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"strconv"
 
 	"github.com/fynelabs/dicomgraphics"
@@ -60,7 +61,7 @@ func (v *viewer) openFolder() {
 	}, v.win)
 	d.Show()
 }
-func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image) fyne.CanvasObject {
+func (v *viewer) setupForm() fyne.CanvasObject {
 	values := widget.NewForm()
 
 	v.id = widget.NewLabel("anon")
@@ -71,21 +72,19 @@ func (v *viewer) setupForm(dicomImg *dicomgraphics.DICOMImage, img *canvas.Image
 	values.Append("Study", v.study)
 
 	v.level = widget.NewEntry()
-	v.level.SetText(fmt.Sprintf("%d", dicomImg.WindowLevel()))
+	v.level.SetText(fmt.Sprintf("%d", v.dicom.WindowLevel()))
 	v.level.OnChanged = func(val string) {
 		l, _ := strconv.Atoi(val)
-		dicomImg.SetWindowLevel(int16(l))
-
-		canvas.Refresh(img)
+		v.setWindowLevel(int16(l))
+		v.refreshImages()
 	}
 
 	v.width = widget.NewEntry()
-	v.width.SetText(fmt.Sprintf("%d", dicomImg.WindowWidth()))
+	v.width.SetText(fmt.Sprintf("%d", v.dicom.WindowWidth()))
 	v.width.OnChanged = func(val string) {
 		w, _ := strconv.Atoi(val)
-		dicomImg.SetWindowWidth(int16(w))
-
-		canvas.Refresh(img)
+		v.setWindowWidth(int16(w))
+		v.refreshImages()
 	}
 
 	presets := widget.NewSelect(presetNames, func(name string) {
@@ -120,48 +119,166 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 	}
 }
 
-// scrollImage shows an image and steps through the slices of a viewer when the
-// mouse wheel is used over it.
-type scrollImage struct {
+// markedImage shows an image scaled to fit and draws a vertical and horizontal line
+// over it at image pixel positions chosen by marks. Scrolling steps through the
+// slices of the viewer and tapping reports the pixel under the pointer.
+type markedImage struct {
 	widget.BaseWidget
 
-	image *canvas.Image
-	view  *viewer
+	image       *canvas.Image
+	horiz, vert *canvas.Line
+	view        *viewer
+
+	// marks returns the column and row of the image, in pixels, that the lines are drawn at.
+	// A negative value hides that line.
+	marks func() (col, row float32)
+	// onTap is called with the image pixel that was tapped, if it is within the image.
+	onTap func(col, row int)
 }
 
-func newScrollImage(img *canvas.Image, view *viewer) *scrollImage {
-	s := &scrollImage{image: img, view: view}
-	s.ExtendBaseWidget(s)
-	return s
+func newMarkedImage(img *canvas.Image, view *viewer, marks func() (col, row float32), onTap func(col, row int)) *markedImage {
+	m := &markedImage{image: img, view: view, marks: marks, onTap: onTap}
+	m.horiz = canvas.NewLine(theme.Color(theme.ColorNamePrimary))
+	m.vert = canvas.NewLine(theme.Color(theme.ColorNamePrimary))
+	m.ExtendBaseWidget(m)
+	return m
 }
 
-func (s *scrollImage) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(s.image)
+func (m *markedImage) CreateRenderer() fyne.WidgetRenderer {
+	return &markedImageRenderer{m: m}
 }
 
-func (s *scrollImage) Scrolled(ev *fyne.ScrollEvent) {
+func (m *markedImage) Scrolled(ev *fyne.ScrollEvent) {
 	if ev.Scrolled.DY > 0 {
-		s.view.previousFrame()
+		m.view.previousFrame()
 	} else if ev.Scrolled.DY < 0 {
-		s.view.nextFrame()
+		m.view.nextFrame()
 	}
 }
 
+func (m *markedImage) Tapped(ev *fyne.PointEvent) {
+	pos, scale, ok := m.imageRect(m.Size())
+	if !ok {
+		return
+	}
+
+	col := int((ev.Position.X - pos.X) / scale)
+	row := int((ev.Position.Y - pos.Y) / scale)
+	b := m.image.Image.Bounds()
+	if col < 0 || row < 0 || col >= b.Dx() || row >= b.Dy() {
+		return
+	}
+	m.onTap(col, row)
+}
+
+// imageRect returns where the pixels of the image are drawn within a widget of
+// the given size when the image is scaled to fit, and the size of each pixel.
+func (m *markedImage) imageRect(size fyne.Size) (pos fyne.Position, scale float32, ok bool) {
+	if m.image.Image == nil {
+		return pos, 0, false
+	}
+	b := m.image.Image.Bounds()
+	if b.Dx() == 0 || b.Dy() == 0 {
+		return pos, 0, false
+	}
+
+	scale = min(size.Width/float32(b.Dx()), size.Height/float32(b.Dy()))
+	w, h := float32(b.Dx())*scale, float32(b.Dy())*scale
+	return fyne.NewPos((size.Width-w)/2, (size.Height-h)/2), scale, true
+}
+
+// layoutLines places the marker lines over the image pixels returned by marks.
+func (m *markedImage) layoutLines(size fyne.Size) {
+	pos, scale, ok := m.imageRect(size)
+	if !ok {
+		m.horiz.Hide()
+		m.vert.Hide()
+		return
+	}
+
+	b := m.image.Image.Bounds()
+	w, h := float32(b.Dx())*scale, float32(b.Dy())*scale
+	col, row := m.marks()
+
+	if col < 0 {
+		m.vert.Hide()
+	} else {
+		x := pos.X + col*scale
+		m.vert.Position1 = fyne.NewPos(x, pos.Y)
+		m.vert.Position2 = fyne.NewPos(x, pos.Y+h)
+		m.vert.Show()
+		m.vert.Refresh()
+	}
+	if row < 0 {
+		m.horiz.Hide()
+	} else {
+		y := pos.Y + row*scale
+		m.horiz.Position1 = fyne.NewPos(pos.X, y)
+		m.horiz.Position2 = fyne.NewPos(pos.X+w, y)
+		m.horiz.Show()
+		m.horiz.Refresh()
+	}
+}
+
+type markedImageRenderer struct {
+	m *markedImage
+}
+
+func (r *markedImageRenderer) Destroy() {}
+
+func (r *markedImageRenderer) Layout(size fyne.Size) {
+	r.m.image.Resize(size)
+	r.m.layoutLines(size)
+}
+
+func (r *markedImageRenderer) MinSize() fyne.Size {
+	return r.m.image.MinSize()
+}
+
+func (r *markedImageRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{r.m.image, r.m.horiz, r.m.vert}
+}
+
+func (r *markedImageRenderer) Refresh() {
+	r.m.image.Refresh()
+	r.m.layoutLines(r.m.Size())
+}
+
+func newFitImage(img image.Image) *canvas.Image {
+	c := canvas.NewImageFromImage(img)
+	c.FillMode = canvas.ImageFillContain
+	return c
+}
+
 func makeUI(a fyne.App) *viewer {
+	const level, width = 40, 380
+
 	win := a.NewWindow("DICOM Viewer")
-	dicomImg := dicomgraphics.NewDICOMImage(nil, 40, 380)
+	view := &viewer{win: win}
+	view.dicom = dicomgraphics.NewDICOMImage(nil, level, width)
+	view.coronal = dicomgraphics.NewProjection(nil, dicomgraphics.Coronal, level, width)
+	view.sagittal = dicomgraphics.NewProjection(nil, dicomgraphics.Sagittal, level, width)
 
-	img := canvas.NewImageFromImage(dicomImg)
-	img.FillMode = canvas.ImageFillContain
+	view.slices = newMarkedImage(newFitImage(view.dicom), view, view.crosshairMarks, view.setCrosshair)
+	view.coronalView = newMarkedImage(newFitImage(view.coronal), view,
+		view.sliceMarks(view.coronal), func(col, row int) {
+			view.sagittal.SetIndex(col)
+			view.setFrame(view.frameAt(view.coronal, row))
+		})
+	view.sagittalView = newMarkedImage(newFitImage(view.sagittal), view,
+		view.sliceMarks(view.sagittal), func(col, row int) {
+			view.coronal.SetIndex(col)
+			view.setFrame(view.frameAt(view.sagittal, row))
+		})
+	view.view = container.NewStack(view.slices)
 
-	view := &viewer{dicom: dicomImg, image: img, win: win}
-	form := view.setupForm(dicomImg, img)
+	form := view.setupForm()
 	items := []fyne.CanvasObject{view.makeToolbar(), form}
 	items = append(items, view.setupNavigation()...)
 	bar := container.NewVBox(items...)
 
-	win.SetContent(container.NewBorder(nil, nil, bar, nil, newScrollImage(img, view)))
-	win.Resize(fyne.NewSize(600, 400))
+	win.SetContent(container.NewBorder(nil, nil, bar, nil, view.view))
+	win.Resize(fyne.NewSize(900, 700))
 
 	return view
 }

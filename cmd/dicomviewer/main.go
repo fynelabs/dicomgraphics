@@ -10,11 +10,13 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
@@ -26,9 +28,13 @@ import (
 
 type viewer struct {
 	dicom                  *dicomgraphics.DICOMImage
+	coronal, sagittal      *dicomgraphics.Projection
 	frames                 []*frame.Frame
 	currentFrame           int
-	image                  *canvas.Image
+	slices                 *markedImage
+	coronalView            *markedImage
+	sagittalView           *markedImage
+	view                   *fyne.Container
 	study, name, id, frame *widget.Label
 	level, width           *widget.Entry
 
@@ -98,15 +104,27 @@ func (v *viewer) loadMetadata(data dicom.Dataset) {
 		} else if elem.Tag == tag.WindowCenter {
 			str := fmt.Sprintf("%v", elem.Value.GetValue().([]string)[0])
 			l, _ := strconv.Atoi(str)
-			v.dicom.SetWindowLevel(int16(l))
+			v.setWindowLevel(int16(l))
 			v.level.SetText(str)
 		} else if elem.Tag == tag.WindowWidth {
 			str := fmt.Sprintf("%v", elem.Value.GetValue().([]string)[0])
 			l, _ := strconv.Atoi(str)
-			v.dicom.SetWindowWidth(int16(l))
+			v.setWindowWidth(int16(l))
 			v.width.SetText(str)
 		}
 	}
+}
+
+func (v *viewer) setWindowLevel(l int16) {
+	v.dicom.SetWindowLevel(l)
+	v.coronal.SetWindowLevel(l)
+	v.sagittal.SetWindowLevel(l)
+}
+
+func (v *viewer) setWindowWidth(w int16) {
+	v.dicom.SetWindowWidth(w)
+	v.coronal.SetWindowWidth(w)
+	v.sagittal.SetWindowWidth(w)
 }
 
 // loadImage shows the frames of a single DICOM file.
@@ -119,6 +137,7 @@ func (v *viewer) loadImage(data dicom.Dataset) {
 
 	v.loadMetadata(data)
 	v.frames = frames
+	v.setVolume(data)
 	v.setFrame(0)
 }
 
@@ -153,6 +172,7 @@ func (v *viewer) loadSeries(sets []dicom.Dataset) {
 
 	v.loadMetadata(sets[0])
 	v.frames = frames
+	v.setVolume(sets[0])
 	v.setFrame(0)
 }
 
@@ -186,6 +206,45 @@ func instanceNumber(data dicom.Dataset, fallback int) int {
 	return n
 }
 
+// decimalStrings returns the decimal string values of a tag, or nil if it is missing.
+func decimalStrings(data dicom.Dataset, t tag.Tag) []string {
+	elem, err := data.FindElementByTag(t)
+	if err != nil {
+		return nil
+	}
+	strs, ok := elem.Value.GetValue().([]string)
+	if !ok {
+		return nil
+	}
+	return strs
+}
+
+// spacingOf returns the distance between pixel rows, pixel columns and slices of a
+// dataset in millimetres. Any value that is missing or invalid is returned as 1.
+func spacingOf(data dicom.Dataset) (row, col, slice float64) {
+	row, col, slice = 1, 1, 1
+
+	if pixel := decimalStrings(data, tag.PixelSpacing); len(pixel) >= 2 {
+		if r, err := strconv.ParseFloat(strings.TrimSpace(pixel[0]), 64); err == nil && r > 0 {
+			row = r
+		}
+		if c, err := strconv.ParseFloat(strings.TrimSpace(pixel[1]), 64); err == nil && c > 0 {
+			col = c
+		}
+	}
+
+	between := decimalStrings(data, tag.SpacingBetweenSlices)
+	if len(between) == 0 {
+		between = decimalStrings(data, tag.SliceThickness)
+	}
+	if len(between) > 0 {
+		if s, err := strconv.ParseFloat(strings.TrimSpace(between[0]), 64); err == nil && s > 0 {
+			slice = s
+		}
+	}
+	return row, col, slice
+}
+
 func (v *viewer) loadKeys() {
 	v.win.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
 		switch key.Name {
@@ -217,8 +276,70 @@ func (v *viewer) setFrame(id int) {
 	v.currentFrame = id
 
 	v.dicom.SetFrame(&v.frames[id].NativeData)
-	canvas.Refresh(v.image)
+	v.refreshImages()
 	v.frame.SetText(fmt.Sprintf("%d/%d", id+1, count))
+}
+
+// setCrosshair chooses the column shown by the sagittal projection and the row
+// shown by the coronal projection, then redraws them.
+func (v *viewer) setCrosshair(col, row int) {
+	v.sagittal.SetIndex(col)
+	v.coronal.SetIndex(row)
+	v.refreshImages()
+}
+
+// refreshImages redraws every view and its marker lines.
+func (v *viewer) refreshImages() {
+	v.slices.Refresh()
+	v.coronalView.Refresh()
+	v.sagittalView.Refresh()
+}
+
+// crosshairMarks returns the centre of the column and row of the main image that the
+// sagittal and coronal projections cut through, or hides them for a single slice.
+func (v *viewer) crosshairMarks() (col, row float32) {
+	if len(v.frames) <= 1 {
+		return -1, -1
+	}
+	return float32(v.sagittal.Index()) + 0.5, float32(v.coronal.Index()) + 0.5
+}
+
+// sliceMarks returns a function giving the vertical centre, within p, of the slice
+// currently shown in the main image. No column is marked.
+func (v *viewer) sliceMarks(p *dicomgraphics.Projection) func() (col, row float32) {
+	return func() (col, row float32) {
+		return -1, float32((float64(v.currentFrame) + 0.5) * p.SliceRatio())
+	}
+}
+
+// frameAt returns which slice is drawn at the given row of the projection p.
+func (v *viewer) frameAt(p *dicomgraphics.Projection, row int) int {
+	return max(0, min(int(float64(row)/p.SliceRatio()), len(v.frames)-1))
+}
+
+// setVolume builds the coronal and sagittal projections from the loaded frames,
+// and lays the window out as a 2x2 grid if there is more than one slice.
+func (v *viewer) setVolume(data dicom.Dataset) {
+	natives := make([]*frame.NativeFrame, len(v.frames))
+	for i := range v.frames {
+		natives[i] = &v.frames[i].NativeData
+	}
+	v.coronal.SetFrames(natives)
+	v.sagittal.SetFrames(natives)
+
+	rowSpacing, colSpacing, sliceSpacing := spacingOf(data)
+	v.coronal.SetSliceRatio(sliceSpacing / colSpacing)
+	v.sagittal.SetSliceRatio(sliceSpacing / rowSpacing)
+
+	if len(v.frames) > 1 {
+		v.view.Objects = []fyne.CanvasObject{container.NewGridWithColumns(2,
+			v.slices, v.coronalView,
+			v.sagittalView, layout.NewSpacer())}
+	} else {
+		v.view.Objects = []fyne.CanvasObject{v.slices}
+	}
+	v.view.Refresh()
+	v.refreshImages()
 }
 
 func fileLength(path string) int64 {
