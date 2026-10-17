@@ -3,10 +3,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -33,44 +35,43 @@ type viewer struct {
 	win fyne.Window
 }
 
+// loadDir parses every DICOM file directly inside dir and shows them as one series.
+// Files that cannot be parsed are skipped, it is an error if none could be read.
 func (v *viewer) loadDir(dir fyne.ListableURI) {
-	var (
-		data   dicom.Dataset
-		frames []*frame.Frame
-	)
+	files, err := dir.List()
+	if err != nil {
+		dialog.ShowError(err, v.win)
+		return
+	}
 
-	files, _ := dir.List()
-	for i, file := range files {
-		r, _ := storage.Reader(file)
-		d, err := dicom.Parse(r, fileLength(file.Path()), nil)
-		if i == 0 {
-			if err != nil {
-				fyne.LogError("First file in dir was not DICOM", err)
-				return
-			}
-			data = d
-		}
-		if err != nil {
-			fyne.LogError("Could not open dicom file "+file.Name()+" in folder", err)
+	var sets []dicom.Dataset
+	failed := 0
+	for _, file := range files {
+		if isDir, _ := storage.CanList(file); isDir {
 			continue
 		}
 
-		t, err := d.FindElementByTag(tag.PixelData)
-		if err == nil {
-			frames = append(frames, t.Value.GetValue().(dicom.PixelDataInfo).Frames...)
+		r, err := storage.Reader(file)
+		if err != nil {
+			failed++
+			fyne.LogError("Could not open file "+file.Name()+" in folder", err)
+			continue
 		}
+		d, err := dicom.Parse(r, fileLength(file.Path()), nil)
 		_ = r.Close()
+		if err != nil {
+			failed++
+			fyne.LogError("Skipping file "+file.Name()+" in folder", err)
+			continue
+		}
+		sets = append(sets, d)
 	}
 
-	t, err := data.FindElementByTag(tag.PixelData)
-	if err == nil {
-		info := t.Value.GetValue().(dicom.PixelDataInfo)
-		info.Frames = frames
-		v, _ := dicom.NewValue(info)
-		t.Value = v
+	if len(sets) == 0 {
+		dialog.ShowError(fmt.Errorf("no DICOM files could be read from %s (%d failed)", dir.Name(), failed), v.win)
+		return
 	}
-
-	v.loadImage(data)
+	v.loadSeries(sets)
 }
 
 func (v *viewer) loadFile(r io.ReadCloser, length int64) {
@@ -85,17 +86,10 @@ func (v *viewer) loadFile(r io.ReadCloser, length int64) {
 	v.loadImage(data)
 }
 
-func (v *viewer) loadImage(data dicom.Dataset) {
+// loadMetadata reads the patient, study and windowing details from a dataset.
+func (v *viewer) loadMetadata(data dicom.Dataset) {
 	for _, elem := range data.Elements {
-		if elem.Tag == tag.PixelData {
-			v.frames = elem.Value.GetValue().(dicom.PixelDataInfo).Frames
-
-			if len(v.frames) == 0 {
-				panic("No images found")
-			}
-
-			v.setFrame(0)
-		} else if elem.Tag == tag.PatientName {
+		if elem.Tag == tag.PatientName {
 			v.name.SetText(fmt.Sprintf("%v", elem.Value))
 		} else if elem.Tag == tag.PatientID {
 			v.id.SetText(fmt.Sprintf("%v", elem.Value))
@@ -113,6 +107,83 @@ func (v *viewer) loadImage(data dicom.Dataset) {
 			v.width.SetText(str)
 		}
 	}
+}
+
+// loadImage shows the frames of a single DICOM file.
+func (v *viewer) loadImage(data dicom.Dataset) {
+	frames := framesOf(data)
+	if len(frames) == 0 {
+		dialog.ShowError(errors.New("no images found"), v.win)
+		return
+	}
+
+	v.loadMetadata(data)
+	v.frames = frames
+	v.setFrame(0)
+}
+
+// loadSeries shows a set of single-slice DICOM files as one multi-frame series.
+// The slices are ordered by their Instance Number as filenames are not reliable.
+func (v *viewer) loadSeries(sets []dicom.Dataset) {
+	type slice struct {
+		order  int
+		frames []*frame.Frame
+	}
+
+	var slices []slice
+	for i, data := range sets {
+		fs := framesOf(data)
+		if len(fs) == 0 {
+			continue
+		}
+		slices = append(slices, slice{order: instanceNumber(data, i), frames: fs})
+	}
+	sort.SliceStable(slices, func(a, b int) bool {
+		return slices[a].order < slices[b].order
+	})
+
+	var frames []*frame.Frame
+	for _, s := range slices {
+		frames = append(frames, s.frames...)
+	}
+	if len(frames) == 0 {
+		dialog.ShowError(errors.New("no images found"), v.win)
+		return
+	}
+
+	v.loadMetadata(sets[0])
+	v.frames = frames
+	v.setFrame(0)
+}
+
+// framesOf returns the pixel data frames of a dataset, or nil if it has none.
+func framesOf(data dicom.Dataset) []*frame.Frame {
+	elem, err := data.FindElementByTag(tag.PixelData)
+	if err != nil {
+		return nil
+	}
+	info, ok := elem.Value.GetValue().(dicom.PixelDataInfo)
+	if !ok {
+		return nil
+	}
+	return info.Frames
+}
+
+// instanceNumber returns the Instance Number of a dataset, or fallback if it has none.
+func instanceNumber(data dicom.Dataset, fallback int) int {
+	elem, err := data.FindElementByTag(tag.InstanceNumber)
+	if err != nil {
+		return fallback
+	}
+	strs, ok := elem.Value.GetValue().([]string)
+	if !ok || len(strs) == 0 {
+		return fallback
+	}
+	n, err := strconv.Atoi(strs[0])
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func (v *viewer) loadKeys() {

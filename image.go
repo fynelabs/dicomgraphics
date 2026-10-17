@@ -53,7 +53,7 @@ func (d *DICOMImage) At(x, y int) color.Color {
 	windowMin := d.level - d.width/2
 	windowMax := windowMin + d.width
 
-	i := y*d.frame.Rows + x
+	i := y*d.frame.Cols + x
 	if i >= len(d.frame.Data) {
 		return color.Black
 	}
