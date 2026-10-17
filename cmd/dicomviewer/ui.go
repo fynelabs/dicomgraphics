@@ -120,24 +120,26 @@ func (v *viewer) setupNavigation() []fyne.CanvasObject {
 }
 
 // markedImage shows an image scaled to fit and draws a vertical and horizontal line
-// over it at image pixel positions chosen by marks. Scrolling steps through the
-// slices of the viewer and tapping reports the pixel under the pointer.
+// over it at image pixel positions chosen by marks. Scrolling moves through the
+// axis normal to the image and tapping reports the pixel under the pointer.
 type markedImage struct {
 	widget.BaseWidget
 
 	image       *canvas.Image
 	horiz, vert *canvas.Line
-	view        *viewer
 
 	// marks returns the column and row of the image, in pixels, that the lines are drawn at.
 	// A negative value hides that line.
 	marks func() (col, row float32)
 	// onTap is called with the image pixel that was tapped, if it is within the image.
 	onTap func(col, row int)
+	// onScroll is called with +1 or -1 steps when the mouse wheel is used over the image.
+	onScroll func(step int)
 }
 
-func newMarkedImage(img *canvas.Image, view *viewer, marks func() (col, row float32), onTap func(col, row int)) *markedImage {
-	m := &markedImage{image: img, view: view, marks: marks, onTap: onTap}
+func newMarkedImage(img *canvas.Image, marks func() (col, row float32), onTap func(col, row int),
+	onScroll func(step int)) *markedImage {
+	m := &markedImage{image: img, marks: marks, onTap: onTap, onScroll: onScroll}
 	m.horiz = canvas.NewLine(theme.Color(theme.ColorNamePrimary))
 	m.vert = canvas.NewLine(theme.Color(theme.ColorNamePrimary))
 	m.ExtendBaseWidget(m)
@@ -150,9 +152,9 @@ func (m *markedImage) CreateRenderer() fyne.WidgetRenderer {
 
 func (m *markedImage) Scrolled(ev *fyne.ScrollEvent) {
 	if ev.Scrolled.DY > 0 {
-		m.view.previousFrame()
+		m.onScroll(-1)
 	} else if ev.Scrolled.DY < 0 {
-		m.view.nextFrame()
+		m.onScroll(1)
 	}
 }
 
@@ -259,16 +261,23 @@ func makeUI(a fyne.App) *viewer {
 	view.coronal = dicomgraphics.NewProjection(nil, dicomgraphics.Coronal, level, width)
 	view.sagittal = dicomgraphics.NewProjection(nil, dicomgraphics.Sagittal, level, width)
 
-	view.slices = newMarkedImage(newFitImage(view.dicom), view, view.crosshairMarks, view.setCrosshair)
-	view.coronalView = newMarkedImage(newFitImage(view.coronal), view,
-		view.sliceMarks(view.coronal), func(col, row int) {
+	view.slices = newMarkedImage(newFitImage(view.dicom), view.crosshairMarks, view.setCrosshair,
+		func(step int) {
+			view.setFrame(view.currentFrame + step)
+		})
+	view.coronalView = newMarkedImage(newFitImage(view.coronal), view.sliceMarks(view.coronal),
+		func(col, row int) {
 			view.sagittal.SetIndex(col)
 			view.setFrame(view.frameAt(view.coronal, row))
+		}, func(step int) {
+			view.setCrosshair(view.sagittal.Index(), view.coronal.Index()+step)
 		})
-	view.sagittalView = newMarkedImage(newFitImage(view.sagittal), view,
-		view.sliceMarks(view.sagittal), func(col, row int) {
+	view.sagittalView = newMarkedImage(newFitImage(view.sagittal), view.sliceMarks(view.sagittal),
+		func(col, row int) {
 			view.coronal.SetIndex(col)
 			view.setFrame(view.frameAt(view.sagittal, row))
+		}, func(step int) {
+			view.setCrosshair(view.sagittal.Index()+step, view.coronal.Index())
 		})
 	view.view = container.NewStack(view.slices)
 

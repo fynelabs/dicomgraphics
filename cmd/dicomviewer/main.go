@@ -138,7 +138,7 @@ func (v *viewer) loadImage(data dicom.Dataset) {
 	v.loadMetadata(data)
 	v.frames = frames
 	v.setVolume(data)
-	v.setFrame(0)
+	v.setFrame(len(v.frames) / 2)
 }
 
 // loadSeries shows a set of single-slice DICOM files as one multi-frame series.
@@ -173,7 +173,7 @@ func (v *viewer) loadSeries(sets []dicom.Dataset) {
 	v.loadMetadata(sets[0])
 	v.frames = frames
 	v.setVolume(sets[0])
-	v.setFrame(0)
+	v.setFrame(len(v.frames) / 2)
 }
 
 // framesOf returns the pixel data frames of a dataset, or nil if it has none.
